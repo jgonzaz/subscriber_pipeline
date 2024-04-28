@@ -8,7 +8,7 @@ import logging
 
 pd.options.mode.copy_on_write = True
 
-logging.basicConfig(filename="./dev/cleanse_db.log",
+logging.basicConfig(filename="clean_db.log",
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                     filemode='w',
                     level=logging.DEBUG,
@@ -119,7 +119,8 @@ def test_joins_for_fan_out(students_df, merged_df):
 def main():
     logger.info("Start Log")
 
-    with open('./dev/changelog.md', 'a+') as file:
+    # getting version from changelog
+    with open('changelog.md', 'a+') as file:
         lines = file.readlines()
     if len(lines) == 0:
         next_version = 0
@@ -142,9 +143,9 @@ def main():
         students = cademycode_conn.execute(students_query).fetchall()
         students_df = pd.DataFrame(students)
 
-    #
+    # checking prod to see if there are new students in the dev database which need to be cleaned
     try:
-        with sqlite3.connect('./prod/cademycode_clean.db') as prod_conn:
+        with sqlite3.connect('../prod/cademycode_clean.db') as prod_conn:
             clean_db = pd.read_sql_query('SELECT * FROM student_info', prod_conn)
 
         new_students = students_df[~np.isin(students_df.uuid.unique(), clean_db.uuid.unique())]
@@ -152,9 +153,11 @@ def main():
         new_students = students_df
         clean_db = []
 
+    # cleansing students df
     clean_new_students = cleanse_students_df(new_students)
 
     if len(clean_new_students) > 0:
+        # cleansing courses and jobs dfs
         clean_courses = cleanse_courses_df(courses_df)
         clean_jobs = cleanse_jobs_df(jobs_df)
 
@@ -170,12 +173,15 @@ def main():
             test_joins_for_fan_out(new_merged_df, clean_db)
         test_nulls(new_merged_df)
 
-        with sqlite3.connect('./prod/cademycode_clean.db') as prod_conn:
-            new_merged_df.to_sql('student_info', prod_conn, if_exists='append', index=False)
-            clean_db = pd.read_sql_query("SELECT * FROM student_info", prod_conn)
+        # uploading clean merged dataframe to dev clean database
+        with sqlite3.connect('./dev/cademycode_clean.db') as clean_conn:
+            new_merged_df.to_sql('student_info', clean_conn, if_exists='append', index=False)
+            clean_db = pd.read_sql_query("SELECT * FROM student_info", clean_conn)
 
+        # writing clean df to file
         clean_db.to_csv('./dev/student_info_cleansed.csv', index=False)
 
+        # creating lines to be written to changelog
         new_lines = [
             '## 0.0.' + str(next_version) + '\n' +
             '### Added\n' +
@@ -184,7 +190,8 @@ def main():
         ]
         write_lines = ''.join(new_lines + lines)
 
-        with open('./dev/changelog.md', 'w') as file:
+        # writing lines to changelog
+        with open('changelog.md', 'w') as file:
             for line in write_lines:
                 file.write(line)
     else:
