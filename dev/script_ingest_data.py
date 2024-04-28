@@ -8,7 +8,7 @@ import logging
 
 pd.options.mode.copy_on_write = True
 
-logging.basicConfig(filename="clean_db.log",
+logging.basicConfig(filename="./dev/clean_db.log",
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                     filemode='w',
                     level=logging.DEBUG,
@@ -120,7 +120,7 @@ def main():
     logger.info("Start Log")
 
     # getting version from changelog
-    with open('changelog.md', 'a+') as file:
+    with open('./dev/changelog.md', 'a+') as file:
         lines = file.readlines()
     if len(lines) == 0:
         next_version = 0
@@ -191,7 +191,7 @@ def main():
         write_lines = ''.join(new_lines + lines)
 
         # writing lines to changelog
-        with open('changelog.md', 'w') as file:
+        with open('./dev/changelog.md', 'w') as file:
             for line in write_lines:
                 file.write(line)
     else:
